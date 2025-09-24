@@ -1,0 +1,6 @@
+This folder only has updated parts, all other necessary parts are in the original folder. 
+Changes Made: 
+-Increased wiring hole sizes
+-Modified middle and base arm sections to work with metal servo horns 
+-Added screw holes for metal servo horns
+-Made servo horns parallel to arm direction (rather than orthogonal) 
