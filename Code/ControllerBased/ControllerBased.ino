@@ -2,8 +2,8 @@
 #include <AccelStepper.h> // Include the AccelStepper library for Stepper object control
 
 // Define input pins
-#define rBumper 2
-#define lBumper 3
+#define rBumper 3
+#define lBumper 2
 #define rJoySwitch 4
 #define lJoySwitch 5
 
@@ -20,13 +20,13 @@
 #define END_ROTATE_PIN 10
 #define CLAW_PIN 11
 
-#define DIR_PIN 13
-#define STEP_PIN 12
+// #define DIR_PIN 13
+// #define STEP_PIN 12
 
 // Define pins for stepper motor microstepping control
 // MS1 is connected to A4 and MS2 to A5.
-#define MS1_PIN A4
-#define MS2_PIN A5
+// #define MS1_PIN A4
+// #define MS2_PIN A5
 
 // Joystick neutral positions
 const int joystickThreshold = 25; // Threshold for joystick movement detection
@@ -40,7 +40,7 @@ int bPrimeAngle = 90;
 int elbowAngle = 90;    // Elbow servo angle
 int ePivotAngle = 90;   // End Pivot servo angle
 int eRotateAngle = 90;  // End Rotate servo angle
-int clawAngle = 51;     // Claw servo angle (101/2 = 50.5, rounded to 51)
+int clawAngle = 45;     // Claw servo angle (101/2 = 50.5, rounded to 51)
 
 // Declare Servo objects for each joint
 Servo base;
@@ -51,7 +51,7 @@ Servo endRotate;
 Servo claw;
 
 // Declare AccelStepper object for the stepper motor
-AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
+// AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
 
 void setup() {
   // Attach servo objects to their respective pins.
@@ -68,21 +68,6 @@ void setup() {
   pinMode(rBumper, INPUT_PULLUP);
   pinMode(lJoySwitch, INPUT_PULLUP);
   pinMode(rJoySwitch, INPUT_PULLUP);
-
-  // Configure stepper motor settings
-  stepper.setMaxSpeed(2000);    // Set the maximum speed in steps per second
-  stepper.setAcceleration(5000); // Set the acceleration in steps per second squared
-  stepper.setCurrentPosition(0); // Set the current position as the home (0) position
-
-  // Configure microstepping pins (MS1, MS2) for the stepper motor driver
-  // Set these pins as outputs
-  pinMode(MS1_PIN, OUTPUT);
-  pinMode(MS2_PIN, OUTPUT);
-
-  // Set MS1 and MS2 to LOW for FULL-STEP mode (common for A4988/DRV8825 drivers)
-  // This helps ensure consistent stepping.
-  digitalWrite(MS1_PIN, LOW);
-  digitalWrite(MS2_PIN, LOW);
 
   //calibrate controller neutrals
   const int numSamples = 100;
@@ -104,6 +89,13 @@ void setup() {
 
   // Begin serial communication for debugging and displaying input
   Serial.begin(115200);
+  claw.write(45);
+  endRotate.write(90);
+  endPivot.write(90);
+  elbow.write(90);
+  base.write(90);
+  basePrime.write(90);
+
 }
 
 void loop() {
@@ -129,7 +121,7 @@ void loop() {
 //   stepper.setSpeed(speed);
 //   stepper.runSpeed();  // Move at constant speed
 // } else {
-//   stepper.setSpeed(0); // Stop movement
+// stepper.setSpeed(0); // Stop movement
 // }
 
 
@@ -146,34 +138,23 @@ void loop() {
 
   // End Rotator (controlled by rightX joystick)
   if (abs(rightX - RXNeutral) > joystickThreshold) {
-    int delta = map(rightX, 0, 1023, -3, 3); // Adjusted delta range for gentler movement
+    int delta = map(rightX, 0, 1023, -6, 6); // Adjusted delta range for gentler movement
     eRotateAngle = constrain(eRotateAngle + delta, 0, 180); // Constrain end rotate angle between 0 and 180
     endRotate.write(eRotateAngle);
   }
 
   // End Pivot (controlled by rightY joystick)
   if (abs(rightY - RYNeutral) > joystickThreshold) {
-    int delta = map(rightY, 0, 1023, 3, -3); // Adjusted delta range for gentler movement
+    int delta = map(rightY, 0, 1023, 5, -5); // Adjusted delta range for gentler movement
     ePivotAngle = constrain(ePivotAngle + delta, 30, 150); // Constrain end pivot angle between 0 and 180
     endPivot.write(ePivotAngle);
   }
 
-  // Elbow (controlled by bumpers)
-  if (lBumperState || rBumperState) {
-    int switchState = (lBumperState << 1) | rBumperState; // Create a 2-bit state (LB RB)
-    switch(switchState) {
-      case 0b00: // Both off or both pressed (no change)
-      case 0b11:
-        break;
-      case 0b01: // Right bumper pressed (decrement elbow angle)
-        elbowAngle = constrain(elbowAngle - 3, 0, 180); // Constrain elbow angle between 0 and 180
-        elbow.write(elbowAngle);
-        break;
-      case 0b10: // Left bumper pressed (increment elbow angle)
-        elbowAngle = constrain(elbowAngle + 3, 0, 180); // Constrain elbow angle between 0 and 180
-        elbow.write(elbowAngle);
-        break;
-    };
+  // ELBOW (controlled by leftX joystick)
+  if (abs(leftX - LXNeutral) > joystickThreshold) {
+    int delta = map(leftX, 0, 1023, -3, 3); // Adjusted delta range for gentler movement
+    elbowAngle = constrain(elbowAngle + delta, 0, 180); // Constrain end rotate angle between 0 and 180
+    elbow.write(elbowAngle);
   }
 
   // Claw (controlled by joystick switches)
@@ -184,11 +165,11 @@ void loop() {
       case 0b11:
         break;
       case 0b10: // Left joystick switch pressed (decrement claw angle)
-        clawAngle = constrain(clawAngle - 3, 0, 102); // Constrain claw angle between 0 and 90
+        clawAngle = constrain(clawAngle - 3, 0, 100); // Constrain claw angle between 0 and 90
         claw.write(clawAngle);
         break;
       case 0b01: // Right joystick switch pressed (increment claw angle)
-        clawAngle = constrain(clawAngle + 3, 0, 102); // Constrain claw angle between 0 and 90
+        clawAngle = constrain(clawAngle + 3, 0, 100); // Constrain claw angle between 0 and 90
         claw.write(clawAngle);
         break;
     };
@@ -214,8 +195,8 @@ void loop() {
   Serial.print(lBumperState);
   Serial.print(" | RBumper: ");
   Serial.print(rBumperState);
-  Serial.print(" | Stepper Pos: ");
-  Serial.print(stepper.currentPosition());
+  // Serial.print(" | Stepper Pos: ");
+  // Serial.print(stepper.currentPosition());
   Serial.print(" | Base: ");
   Serial.print(bAngle);
   Serial.print(" | Base Prime: ");
