@@ -9,19 +9,34 @@
 #define CLAW_PIN 11
 
 // Current servo angles
-int bAngle = 90;
-int bPrimeAngle = 90;
-int elbowAngle = 90;
-int ePivotAngle = 90;
-int eRotateAngle = 90;
-int clawAngle = 45;
+float bAngle = 90;
+float bPrimeAngle = 90;
+float elbowAngle = 90;
+float ePivotAngle = 90;
+float eRotateAngle = 90;
+float clawAngle = 45;
 
-// Step speeds in degrees per update
-const int BASE_SPEED = 1;
-const int ELBOW_SPEED = 2;
-const int PIVOT_SPEED = 2;
-const int ROTATE_SPEED = 4;
-const int CLAW_SPEED = 3;
+// Velocity variables (degrees per update)
+float bVel = 0;
+float bPrimeVel = 0;
+float elbowVel = 0;
+float ePivotVel = 0;
+float eRotateVel = 0;
+float clawVel = 0;
+
+// Max speeds (deg/update)
+const float BASE_MAX = 2;
+const float ELBOW_MAX = 3;
+const float PIVOT_MAX = 3;
+const float ROTATE_MAX = 5;
+const float CLAW_MAX = 4;
+
+// Accelerations (deg/update^2)
+const float BASE_ACC = 0.1;
+const float ELBOW_ACC = 0.15;
+const float PIVOT_ACC = 0.15;
+const float ROTATE_ACC = 0.25;
+const float CLAW_ACC = 1;
 
 // Press flags
 bool wPressed = false;
@@ -53,7 +68,6 @@ void setup() {
   endRotate.attach(END_ROTATE_PIN);
   claw.attach(CLAW_PIN);
 
-  // Initialize positions
   base.write(bAngle);
   basePrime.write(bPrimeAngle);
   elbow.write(elbowAngle);
@@ -62,12 +76,33 @@ void setup() {
   claw.write(clawAngle);
 }
 
+float updateServo(float angle, float &vel, bool positive, bool negative,
+                  float a_max, float v_max, int minA, int maxA) {
+  // acceleration or deceleration
+  if (positive && !negative)
+    vel += a_max;
+  else if (negative && !positive)
+    vel -= a_max;
+  else {
+    // natural slowdown (friction)
+    if (vel > a_max) vel -= a_max;
+    else if (vel < -a_max) vel += a_max;
+    else vel = 0;
+  }
+
+  // clamp velocity
+  if (vel > v_max) vel = v_max;
+  if (vel < -v_max) vel = -v_max;
+
+  // integrate
+  angle += vel;
+  return constrain(angle, minA, maxA);
+}
+
 void loop() {
-  // handle serial input
   while (Serial.available() > 0) {
     char c = Serial.read();
     switch (c) {
-      // press events
       case 'w': wPressed = true; break;
       case 's': sPressed = true; break;
       case 'a': aPressed = true; break;
@@ -79,7 +114,6 @@ void loop() {
       case 'z': zPressed = true; break;
       case 'x': xPressed = true; break;
 
-      // release events (uppercase from Python)
       case 'W': wPressed = false; break;
       case 'S': sPressed = false; break;
       case 'A': aPressed = false; break;
@@ -93,57 +127,22 @@ void loop() {
     }
   }
 
-  // update angles based on flags
-  if (wPressed) {
-    bAngle = constrain(bAngle + BASE_SPEED, 0, 180);
-    bPrimeAngle = constrain(bPrimeAngle - BASE_SPEED, 0, 180);
-  }
-  if (sPressed) {
-    bAngle = constrain(bAngle - BASE_SPEED, 0, 180);
-    bPrimeAngle = constrain(bPrimeAngle + BASE_SPEED, 0, 180);
-  }
-  if (aPressed) {
-    elbowAngle = constrain(elbowAngle + ELBOW_SPEED, 0, 180);
-  }
-  if (dPressed) {
-    elbowAngle = constrain(elbowAngle - ELBOW_SPEED, 0, 180);
-  }
-  if (qPressed) {
-    eRotateAngle = constrain(eRotateAngle - ROTATE_SPEED, 0, 180);
-  }
-  if (ePressed) {
-    eRotateAngle = constrain(eRotateAngle + ROTATE_SPEED, 0, 180);
-  }
-  if (rPressed) {
-    ePivotAngle = constrain(ePivotAngle + PIVOT_SPEED, 30, 150);
-  }
-  if (fPressed) {
-    ePivotAngle = constrain(ePivotAngle - PIVOT_SPEED, 30, 150);
-  }
-  if (zPressed) {
-    clawAngle = constrain(clawAngle - CLAW_SPEED, 0, 72);
-  }
-  if (xPressed) {
-    clawAngle = constrain(clawAngle + CLAW_SPEED, 0, 72);
-  }
+  // Update with acceleration curves
+  bAngle = updateServo(bAngle, bVel, wPressed, sPressed, BASE_ACC, BASE_MAX, 0, 180);
+  bPrimeAngle = 180 - bAngle; // keep mirrored
 
-  //write positions to servos
-  base.write(bAngle);
-  basePrime.write(bPrimeAngle);
-  elbow.write(elbowAngle);
-  endPivot.write(ePivotAngle);
-  endRotate.write(eRotateAngle);
-  claw.write(clawAngle);
+  elbowAngle = updateServo(elbowAngle, elbowVel, aPressed, dPressed, ELBOW_ACC, ELBOW_MAX, 0, 180);
+  eRotateAngle = updateServo(eRotateAngle, eRotateVel, ePressed, qPressed, ROTATE_ACC, ROTATE_MAX, 0, 180);
+  ePivotAngle = updateServo(ePivotAngle, ePivotVel, rPressed, fPressed, PIVOT_ACC, PIVOT_MAX, 30, 150);
+  clawAngle = updateServo(clawAngle, clawVel, xPressed, zPressed, CLAW_ACC, CLAW_MAX, 0, 72);
 
-  // optional debug output
-  /*
-  Serial.print("Base: "); Serial.print(bAngle);
-  Serial.print(" | Base Prime: "); Serial.print(bPrimeAngle);
-  Serial.print(" | Elbow: "); Serial.print(elbowAngle);
-  Serial.print(" | End Pivot: "); Serial.print(ePivotAngle);
-  Serial.print(" | End Rotate: "); Serial.print(eRotateAngle);
-  Serial.print(" | Claw: "); Serial.println(clawAngle);
-  */
+  // Write positions
+  base.write((int)bAngle);
+  basePrime.write((int)bPrimeAngle);
+  elbow.write((int)elbowAngle);
+  endPivot.write((int)ePivotAngle);
+  endRotate.write((int)eRotateAngle);
+  claw.write((int)clawAngle);
 
   delay(20);
 }
