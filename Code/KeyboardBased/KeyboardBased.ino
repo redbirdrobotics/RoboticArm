@@ -49,6 +49,7 @@ bool rPressed = false;
 bool fPressed = false;
 bool zPressed = false;
 bool xPressed = false;
+bool zeroPressed = false;
 
 // Servo objects
 Servo base;
@@ -113,6 +114,7 @@ void loop() {
       case 'f': fPressed = true; break;
       case 'z': zPressed = true; break;
       case 'x': xPressed = true; break;
+      case '0': zeroPressed = !zeroPressed; break;
 
       case 'W': wPressed = false; break;
       case 'S': sPressed = false; break;
@@ -128,14 +130,25 @@ void loop() {
   }
 
   // Update with acceleration curves
-  bAngle = updateServo(bAngle, bVel, wPressed, sPressed, BASE_ACC, BASE_MAX, 0, 180);
-  bPrimeAngle = 180 - bAngle; // keep mirrored
+  
 
-  elbowAngle = updateServo(elbowAngle, elbowVel, aPressed, dPressed, ELBOW_ACC, ELBOW_MAX, 0, 180);
-  eRotateAngle = updateServo(eRotateAngle, eRotateVel, ePressed, qPressed, ROTATE_ACC, ROTATE_MAX, 0, 180);
-  ePivotAngle = updateServo(ePivotAngle, ePivotVel, rPressed, fPressed, PIVOT_ACC, PIVOT_MAX, 30, 150);
-  clawAngle = updateServo(clawAngle, clawVel, xPressed, zPressed, CLAW_ACC, CLAW_MAX, 0, 72);
-
+  if (zeroPressed) {
+    bAngle = 90;
+    bPrimeAngle = 90;
+    elbowAngle = 90;
+    ePivotAngle = 90;
+    eRotateAngle = 90;
+    clawAngle = 45;
+  } else {
+    bAngle = updateServo(bAngle, bVel, wPressed, sPressed, BASE_ACC, BASE_MAX, 0, 180);
+    bPrimeAngle = 180 - bAngle; // keep mirrored
+    
+    elbowAngle = updateServo(elbowAngle, elbowVel, aPressed, dPressed, ELBOW_ACC, ELBOW_MAX, 0, 180);
+    eRotateAngle = updateServo(eRotateAngle, eRotateVel, ePressed, qPressed, ROTATE_ACC, ROTATE_MAX, 30, 150);
+    ePivotAngle = updateServo(ePivotAngle, ePivotVel, rPressed, fPressed, PIVOT_ACC, PIVOT_MAX, 30, 150);
+    clawAngle = updateServo(clawAngle, clawVel, xPressed, zPressed, CLAW_ACC, CLAW_MAX, 0, 72);
+  }
+  
   // Write positions
   base.write((int)bAngle);
   basePrime.write((int)bPrimeAngle);
