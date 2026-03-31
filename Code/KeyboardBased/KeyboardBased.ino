@@ -121,10 +121,10 @@ void loop() {
     ePivotAngle = constrain(ePivotAngle - PIVOT_SPEED, 30, 150);
   }
   if (zPressed) {
-    clawAngle = constrain(clawAngle - CLAW_SPEED, 0, 72);
+    clawAngle = constrain(clawAngle + CLAW_SPEED, 43, 72);
   }
   if (xPressed) {
-    clawAngle = constrain(clawAngle + CLAW_SPEED, 0, 72);
+    clawAngle = constrain(clawAngle - CLAW_SPEED, 43, 72);
   }
 
   //write positions to servos
